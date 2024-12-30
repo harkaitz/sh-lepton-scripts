@@ -1,0 +1,260 @@
+#!/bin/sh -e
+##:
+#h: Usage: wds_lepton ...
+#h:
+#h: Lepton EDA project management program. Use this program for accessing
+#h: and printing Lepton EDA projects.
+#h:
+#h:   show     Show configuration variables.
+#h:   new-prj  Create new project.
+#h:
+#h:   open [FILE]             Open schematics and symbols.
+#h:   attrib [FILE]           Open schematics to edit attributes.
+#h:   new-sch NAME TITLE      Create "sch/NAME_pag01.sch" schematic.
+#h:   new-sym NAME TEMPLATE   Create "sym/NAME.sym" symbol.
+#h:
+#h:   update    Update symbols and page numbers.
+#h:   ls-sch    List schematics.
+#h:   out-pdf   Create pdf file from schematics.
+#h:   out-bom   Create BOM from schematics.
+#h:   out-drc   Create DRC from schematics.
+#h:
+#h: Schematic attributes: page, pages, author, title
+#h: Variables: EDITOR, COMPANY_NAME, EMPLOYEE_NAME, PROJECT_REVISION
+#h: Configuration files: pkg/CONFIG
+##:
+wds_lepton() {
+    local cmd="$1"
+    shift
+    case "${cmd}" in
+        show)    wds_lepton_show_variables  ;;
+        new-prj) wds_lepton_new_project     ;;
+        open)    wds_lepton_open "$@"       ;;
+        attrib)  wds_lepton_attrib "$@"     ;;
+        update)  wds_lepton_update          ;;
+        new-sch) wds_lepton_new_sch "$@"    ;;
+        new-sym) wds_lepton_new_sym "$@"    ;;
+        ls-sch)  wds_lepton_list_schematics ;;
+        out-pdf) wds_lepton_out_pdf         ;;
+        out-bom) wds_lepton_out_bom         ;;
+        out-drc) wds_lepton_out_drc         ;;
+        *.sch)   wds_lepton_open "${cmd}"   ;;
+        *.sym)   wds_lepton_open "${cmd}"   ;;
+        *)       echo >&2 "error: Invalid argument: ${cmd}"; return 1;;
+    esac
+}
+wds_lepton_show_variables() {
+    cat <<-EOF
+	COMPANY_NAME       : ${COMPANY_NAME}
+	EMPLOYEE_NAME      : ${EMPLOYEE_NAME}
+	PROJECT_REVISION   : ${PROJECT_REVISION}
+	PROJECT_CODENAME   : ${PROJECT_CODENAME}
+	LEPTON_EXPORT_BW   : ${LEPTON_EXPORT_BW}
+	LEPTON_NETLIST_BOM : ${LEPTON_NETLIST_BOM}
+	EOF
+}
+wds_lepton_calc_variables() {
+    if test -f pkg/CONFIG; then
+        . pkg/CONFIG
+    fi
+    LEPTON_PREFIX="${LEPTON_PREFIX:-/usr}"
+    LEPTON_EXPORT_BW="${LEPTON_EXPORT_BW:-lepton-cli export  -f pdf -p iso_a4 -l landscape --no-color}"
+    LEPTON_NETLIST_BOM="${LEPTON_NETLIST_BOM:-lepton-netlist -g bom}"
+    LEPTON_NETLIST_DRC="${LEPTON_NETLIST_DRC:-lepton-netlist -g drc}"
+    PROJECT_CODENAME="${PROJECT_CODENAME:-$(basename "$(pwd)" | sed 's|^sch-||')}"
+}
+## -------------------------------------------------------------------
+wds_lepton_new_project() { # () -> () :
+    mkdir -p sym sch
+    #
+    echo "Creating './gafrc' and './sch/gafrc' ..."
+    if test ! -f "./gafrc"; then
+        cat > ./gafrc <<-EOF
+	(component-library "./sym")
+	EOF
+    fi
+    if test ! -f "./sch/gafrc"; then
+        cat > ./sch/gafrc <<-EOF
+	(component-library "../sym")
+	EOF
+    fi
+    #
+    lepton-config schematic.backup create-files false
+    #
+    echo "Creating './pkg/CONFIG' ..."
+    mkdir -p pkg
+    touch pkg/CONFIG
+    grep -q 'COMPANY_NAME='     pkg/CONFIG || echo "COMPANY_NAME=${COMPANY_NAME}" >> pkg/CONFIG
+    grep -q 'EMPLOYEE_NAME='    pkg/CONFIG || echo "EMPLOYEE_NAME=${EMPLOYEE_NAME}" >> pkg/CONFIG
+    grep -q 'PROJECT_REVISION=' pkg/CONFIG || echo "PROJECT_REVISION=${PROJECT_REVISION:-0.1}" >> pkg/CONFIG
+    ${EDITOR:-vi} pkg/CONFIG
+}
+## -------------------------------------------------------------------
+wds_lepton_out_pdf() { # () -> () : Create PDFs from schematics.
+    local pdf="out/${PROJECT_CODENAME}_bw.pdf"
+    echo "Creating ${pdf} ..."
+    mkdir -p "out"
+    ${LEPTON_EXPORT_BW} -o "${pdf}" $(wds_lepton_list_schematics | sed 's|^[^ ]* *||')
+}
+wds_lepton_out_bom() { # () -> () : Create BOM from schematics.
+    local bom="out/${PROJECT_CODENAME}.bom"
+    echo "Creating ${bom} ..."
+    mkdir -p "out"
+    ${LEPTON_NETLIST_BOM} -o "${bom}" $(wds_lepton_list_schematics | sed 's|^[^ ]* *||')
+}
+wds_lepton_out_drc() { # () -> () : Create DRC from schematics.
+    local drc="out/${PROJECT_CODENAME}.drc"
+    echo "Creating ${drc} ..."
+    mkdir -p "out"
+    ${LEPTON_NETLIST_DRC} -o "${drc}" $(wds_lepton_list_schematics | sed 's|^[^ ]* *||') || true
+    cat "${drc}" >&2
+}
+## -------------------------------------------------------------------
+wds_lepton_open() { # ([FILE]) -> () : Open with "lepton-schematic".
+    if test ! -n "$1"; then
+        echo >&2
+        wds_lepton_list_schematics | sed 's|^[^ ]* ||' >&2
+        echo >&2
+        echo >&2 'Please select a file.'
+        return 1
+    fi
+    case "$1" in
+        *.sch|*.sym) lepton-schematic "$1" ;;
+        *)           xdg-open "$1";;
+    esac
+}
+wds_lepton_attrib() { # ([FILE]) -> () : Open with "lepton-attrib".
+    if test ! -n "$1"; then
+        echo >&2
+        wds_lepton_list_schematics | sed 's|^[^ ]* ||' >&2
+        echo >&2
+        echo >&2 'Please select a file.'
+        return 1
+    fi
+    case "$1" in
+        *.sch|*.sym) lepton-attrib "$1" ;;
+        *)           echo >&2 "error: Unsupported file.";;
+    esac
+}
+wds_lepton_new_sch() { # (NAME TITLE) -> () : Create new schematic in "sch/NAME_pagNN.sch".
+    local name="$1" title="$2"
+    if test ! -n "${name}"; then
+        echo >&2 "error: Please specify a name."
+        return 1
+    fi
+    if test ! -n "${title}"; then
+        echo >&2 "error: Please specify a title."
+        return 1
+    fi
+    if test -f "sch/${name}.sch"; then
+        echo >&2 "error: sch/${name}.sch: The file already exists."
+        return 1
+    fi
+    local pag="$(wds_lepton_get_number)"
+    wds_lepton_update
+    echo "Creating sch/${name}_pag${pag}.sch ..."
+    cat > "sch/${name}_pag${pag}.sch" <<-EOF
+	v 20220529 2
+	C 43100 41100 0 0 0 custom-title.sym
+	T 52600 41800 3 10 1 1 0 0 1
+	title=${title}
+	T 52600 41200 3 10 1 1 0 0 1
+	page=1
+	T 54100 41200 3 10 1 1 0 0 1
+	pages=1
+	T 56500 41200 3 10 1 1 0 0 1
+	author=${EMPLOYEE_NAME}
+	EOF
+}
+wds_lepton_new_sym() { # (NAME TEMPLATE) -> () : Create new symbol in "sym/NAME.sym".
+    local name="$1" tmpl="$2" symdir="${LEPTON_PREFIX}/share/lepton-eda/sym"
+    if test ! -n "${tmpl}"; then
+        find >&2 "${symdir}" -type f -name '*.sym'
+        echo >&2
+        echo >&2 "${symdir}/analog/aop-std-1.sym : AmpOp"
+        echo >&2 "${symdir}/analog/battery-1.sym : Battery"
+        echo >&2 "${symdir}/analog/bridge-1.sym  : Box4"
+        echo >&2 "${symdir}/IEC417/spdt.sym      : Relay"
+        echo >&2 "${symdir}/power/vcc-1.sym      : Power"
+        echo >&2 "${symdir}/power/gnd-1.sym      : Power"
+        echo >&2
+        if test ! -n "${name}"; then
+            echo >&2 "error: Please specify a name for the new symbol."
+        fi
+        echo >&2 "error: Please select template symbol."
+        return 1
+    fi
+    if test -f "sym/${name}.sym"; then
+        echo >&2 "error: sym/${name}.sym: The file exists."
+        return 1
+    fi
+    cp -v "$tmpl" "sym/${name}.sym"
+}
+wds_lepton_update() { # () -> () : Update files.
+    local page pages file tmp ititle
+    # Update "sym/custom-title.sym".
+    echo "Updating sym/custom-title.sym ..."
+    ititle="${LEPTON_PREFIX}/share/lepton-eda/sym/titleblock/title-A3.sym"
+    mkdir -p sym
+    sed "
+        s|^FILE:.*|COMPANY: ${COMPANY_NAME}|
+        s|^COMPANY:.*|COMPANY: ${COMPANY_NAME}|
+        s|^REVISION:.*|REVISION: ${PROJECT_REVISION}|
+    " "${ititle}" > "sym/custom-title.sym"
+    # Replace "page" and "pages" attributes in schematics.
+    tmp="$(mktemp)"
+    wds_lepton_list_schematics > "${tmp}"
+    pages="$(tail -n 1 "${tmp}" | sed 's| .*||')"
+    while read -r page file; do
+        echo "Updating ${file} (page $page)..."
+        sed -i "
+            s|^page=.*|page=${page}|
+            s|^pages=.*|pages=${pages}|
+        " "${file}"
+    done < "${tmp}"
+    rm -f "${tmp}"
+    # Create "./attribs".
+    if test ! -f ./attribs; then
+        echo "Creating attribs ..."
+        cat > ./attribs <<-EOF
+	device
+	value
+	EOF
+    fi
+    # Create "./lepton".
+    echo "Updating lepton ..."
+    cat "$0" > "./lepton"
+    chmod +x "./lepton"
+}
+## -------------------------------------------------------------------
+wds_lepton_list_schematics() { # () -> (PAGE FILE) : List schematics.
+    local sch pag
+    find 'sch' -name '*.sch' | while read -r sch; do
+        pag="$(wds_lepton_get_page "${sch}")"
+        echo "${pag} ${sch}"
+    done | sort
+}
+wds_lepton_get_page() { # (FILE) -> (PAGE) : Get page of file.
+    local pag
+    pag="$(echo "${1}" | sed -n 's|.*_pag\([0-9][0-9]*\).*|\1|p')"
+    pag="${pag:-NN}"
+    echo "${pag}"
+}
+wds_lepton_get_number() { # () -> (PAGE) : Get page not used.
+    local tmp="$(mktemp)"
+    wds_lepton_list_schematics > "${tmp}"
+    for pag in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15; do
+        if ! grep -q "^${pag} " "${tmp}"; then
+            echo "${pag}"
+            return 0
+        fi
+    done
+    echo "NN"
+}
+## -------------------------------------------------------------------
+wds_lepton_calc_variables
+case "${1}" in
+    ''|-h|--help) sed -n 's/^ *#h: \{0,1\}//p' "$0";;
+    *)            wds_lepton "$@"; exit 0;;
+esac
+

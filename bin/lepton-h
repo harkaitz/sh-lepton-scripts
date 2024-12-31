@@ -51,6 +51,7 @@ wds_lepton_show_variables() {
 	PROJECT_CODENAME   : ${PROJECT_CODENAME}
 	LEPTON_EXPORT_BW   : ${LEPTON_EXPORT_BW}
 	LEPTON_NETLIST_BOM : ${LEPTON_NETLIST_BOM}
+	LEPTON_NETLIST_DRC : ${LEPTON_NETLIST_DRC}
 	EOF
 }
 wds_lepton_calc_variables() {
@@ -78,6 +79,8 @@ wds_lepton_new_project() { # () -> () :
 	(component-library "../sym")
 	EOF
     fi
+    #
+    touch sym/.gitkeep
     #
     lepton-config schematic.backup create-files false
     #

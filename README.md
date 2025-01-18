@@ -30,9 +30,18 @@ lepton-h
     Variables: EDITOR, COMPANY_NAME, EMPLOYEE_NAME, PROJECT_REVISION
     Configuration files: pkg/CONFIG
 
+np--lepton
+
+    Usage: np--lepton
+    
+    Variables: EDITOR, COMPANY_NAME, EMPLOYEE_NAME, PROJECT_REVISION
+
+wds_lepton
+
+
 ## Collaborating
 
-For making bug reports, feature requests and donations visit
+For making bug reports, feature requests, support or consulting visit
 one of the following links:
 
 1. [gemini://harkadev.com/oss/](gemini://harkadev.com/oss/)

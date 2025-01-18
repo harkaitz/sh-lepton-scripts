@@ -1,0 +1,8 @@
+#!/bin/sh -e
+if test @"${SCRNAME:-$(basename "$0")}" = @"wds_lepton"; then
+    case "${1}" in
+        ''|-h|--help) lepton-h "$@";;
+        --match)      test -f "${2}/gafrc" || test -f "${2}/lepton.conf";;
+        *)            lepton-h "$@"; exit 0;;
+    esac
+fi

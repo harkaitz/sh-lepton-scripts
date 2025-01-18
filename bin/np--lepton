@@ -1,0 +1,16 @@
+#!/bin/sh -e
+##:
+#h: Usage: np--lepton
+#h:
+#h: Variables: EDITOR, COMPANY_NAME, EMPLOYEE_NAME, PROJECT_REVISION
+##:
+np__lepton() {
+    lepton-h new-prj
+}
+## -------------------------------------------------------------------
+if test @"${SCRNAME:-$(basename "$0")}" = @"np--lepton"; then
+    case "${1}" in
+        -h|--help) sed -n 's/^ *#h: \{0,1\}//p' "$0";;
+        *)         np__lepton "$@"; exit 0;;
+    esac
+fi

@@ -24,4 +24,6 @@ install: install-sh
 install-sh:
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	cp bin/lepton-h $(DESTDIR)$(PREFIX)/bin
+	cp bin/np--lepton $(DESTDIR)$(PREFIX)/bin
+	cp bin/wds_lepton $(DESTDIR)$(PREFIX)/bin
 ## -- BLOCK:sh --

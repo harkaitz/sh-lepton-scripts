@@ -30,12 +30,6 @@ lepton-h
     Variables: EDITOR, COMPANY_NAME, EMPLOYEE_NAME, PROJECT_REVISION
     Configuration files: pkg/CONFIG
 
-np--lepton
-
-    Usage: np--lepton
-    
-    Variables: EDITOR, COMPANY_NAME, EMPLOYEE_NAME, PROJECT_REVISION
-
 wds_lepton
 
 

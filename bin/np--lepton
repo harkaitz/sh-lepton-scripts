@@ -2,6 +2,8 @@
 ##:
 #h: Usage: np--lepton
 #h:
+#h: Create new Lepton project.
+#h:
 #h: Variables: EDITOR, COMPANY_NAME, EMPLOYEE_NAME, PROJECT_REVISION
 ##:
 np__lepton() {
